@@ -112,3 +112,136 @@ blueprint:
       name: Motion Off Blocker Desired State
       default: false
       selector:
+        boolean: {}
+
+    scene_ambient:
+      name: Ambient Scene
+      default: scene.none
+      selector:
+        entity:
+          domain: scene
+
+    time_scene_ambient_start:
+      name: Ambient Scene Start Time
+      default: "00:00:00"
+      selector:
+        time: {}
+
+    time_scene_ambient_end:
+      name: Ambient Scene End Time
+      default: "23:59:59"
+      selector:
+        time: {}
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  brightness_level: !input brightness_level
+  scene_ambient: !input scene_ambient
+  automation_blocker_entities: !input automation_blocker_entities
+  automation_blocker_boolean: !input automation_blocker_boolean
+  motion_off_blocker: !input motion_off_blocker
+  motion_off_blocker_boolean: !input motion_off_blocker_boolean
+  elevation: !input elevation
+  elevation_adjustment: !input elevation_adjustment
+
+trigger:
+  - platform: state
+    entity_id: !input motion_entity
+    from: "off"
+    to: "on"
+
+  - platform: state
+    entity_id: !input motion_entity
+    from: "on"
+    to: "off"
+    for: !input no_motion_wait
+
+condition:
+  - condition: template
+    value_template: >
+      {% if automation_blocker_entities | length == 0 %}
+        true
+      {% else %}
+        {% for entity in automation_blocker_entities %}
+          {% if (automation_blocker_boolean and states(entity) != 'on')
+                or (not automation_blocker_boolean and states(entity) != 'off') %}
+            false
+          {% endif %}
+        {% endfor %}
+        true
+      {% endif %}
+
+  - condition: template
+    value_template: >
+      {% if elevation == 'Always' %}
+        true
+      {% else %}
+        {% set sun_elev = state_attr('sun.sun','elevation') %}
+        {% if sun_elev is none %}
+          false
+        {% elif elevation == 'Above horizon' %}
+          {{ sun_elev > elevation_adjustment }}
+        {% else %}
+          {{ sun_elev <= elevation_adjustment }}
+        {% endif %}
+      {% endif %}
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.to_state.state == 'on' }}"
+          - condition: numeric_state
+            entity_id: !input luminance_sensor
+            below: !input luminance_required
+          - condition: time
+            after: !input time_default_start
+            before: !input time_default_end
+
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ brightness_level >= 0 }}"
+                sequence:
+                  - service: light.turn_on
+                    target: !input light_target
+                    data:
+                      brightness: >
+                        {{ ((brightness_level / 100) * 255) | round(0) }}
+
+            default:
+              - service: light.turn_on
+                target: !input light_target
+
+      - conditions:
+          - condition: template
+            value_template: >
+              {% if motion_off_blocker | length == 0 %}
+                true
+              {% else %}
+                {% for entity in motion_off_blocker %}
+                  {% if (motion_off_blocker_boolean and states(entity) != 'on')
+                        or (not motion_off_blocker_boolean and states(entity) != 'off') %}
+                    false
+                  {% endif %}
+                {% endfor %}
+                true
+              {% endif %}
+
+        sequence:
+          - choose:
+              - conditions:
+                  - "{{ scene_ambient != 'scene.none' }}"
+                  - condition: time
+                    after: !input time_scene_ambient_start
+                    before: !input time_scene_ambient_end
+                sequence:
+                  - service: scene.turn_on
+                    target:
+                      entity_id: !input scene_ambient
+            default:
+              - service: light.turn_off
+                target: !input light_target
