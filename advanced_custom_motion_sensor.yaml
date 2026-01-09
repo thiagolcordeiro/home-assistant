@@ -1,92 +1,78 @@
 blueprint:
-  name: Advanced Custom Motion Sensor Enhanced
+  name: Advanced Custom Motion Sensor Enhanced (No Brightness Override)
   description: |
-    This motion sensor is based on several ideas from other blueprints, and adding my own customizations.
-    Inputs and actions are:
-    - Turn on lights or scenes when motion is detected. The trigger can be a motion detector or anything that switches between ON and OFF. You can use several motion detectors.
-    - The activation can be triggered between a certain time slot (so the bathroom light does not turn on in the middle of the night)
-    - You can specify a luminance value: only run when it is darker than indicated
-    - Sun horizon setting: you can run the action always, or only when the sun is above or below the horizon.
-    - You can adjust the horizon by giving an elevation adjustment number
-    - Wait time for turning off
-    - Only run if an optional entity is in desired state (optional)
-    - Default scene when motion stops (optional)
-    - Only run the motion off action if an optional entity is in desired state
-    Based on the work from https://github.com/arturoliveira/home-assistant/blob/main/advanced_custom_motion_sensor.yaml
-    Changes included:
-    - Now support we can define multiple automation and motion blocker entities
+    Versão ajustada para permitir não interferir no brilho da lâmpada.
+    Use Brightness Level = -1 para manter o brilho atual.
 
   domain: automation
   source_url: https://github.com/arturoliveira/home-assistant/blob/main/advanced_custom_motion_sensor.yaml
+
   input:
     motion_entity:
       name: Motion Sensor
-      description: Motion Sensor or a group with Motion Sensors (But can be anything switching between "on" and "off")
       selector:
         entity:
           multiple: true
+
     light_target:
       name: Light
-      description: The lights you want to control when motion is detected.
       selector:
         target:
           entity:
             domain: light
+
     luminance_sensor:
       name: Illuminance sensor
-      description: This sensor will be used to determine the illumination.
       default:
       selector:
         entity:
           domain: sensor
           device_class: illuminance
-          multiple: false
+
     luminance_required:
       name: Required Lux Level
-      description: Lux level below which the automation will run.
       default: 100
       selector:
         number:
           min: 0
           max: 1000
           unit_of_measurement: lx
+
     no_motion_wait:
       name: Wait time
-      description: Time to leave the light on after last motion is detected.
       default: 120
       selector:
         number:
-          min: 0.0
-          max: 600.0
+          min: 0
+          max: 600
           unit_of_measurement: seconds
-          mode: slider
-          step: 1.0
+
     brightness_level:
-      name: Brightness Level (Percentage)
-      description: Brightness level to set for all lights, in percentage (0-100).
-      default: 30
+      name: Brightness Level (%)
+      description: Use -1 para NÃO alterar o brilho da lâmpada
+      default: -1
       selector:
         number:
-          min: 0
+          min: -1
           max: 100
           unit_of_measurement: "%"
           mode: slider
           step: 1
+
     time_default_start:
-      name: Only run default action after this time (Optional)
-      description: Default Light target will only run when time is later than this time value.
-      default: 00:00:00
+      name: Only run after time
+      default: "00:00:00"
       selector:
         time: {}
+
     time_default_end:
-      name: Only run default action before this time (Optional)
-      description: Default Light target will only run when time is earlier than this time value.
-      default: 00:00:00
+      name: Only run before time
+      default: "23:59:59"
       selector:
         time: {}
+
     elevation:
-      name: Elevation
-      description: Choose whether to check if the sun is above, below the horizon, or always trigger the action
+      name: Sun elevation
       default: Always
       selector:
         select:
@@ -94,141 +80,117 @@ blueprint:
             - Always
             - Below horizon
             - Above horizon
+
     elevation_adjustment:
-      name: Sun elevation adjustment (Optional)
-      description: With a positive number, the sun is further above the horizon. For instance, +10 approximately means the trigger will activate one hour before the sun is below horizon.
+      name: Sun elevation adjustment
       default: 0
       selector:
         number:
-          min: -90.0
-          max: 90.0
+          min: -90
+          max: 90
           unit_of_measurement: degrees
-          mode: slider
-          step: 1.0
+
     automation_blocker_entities:
-      name: Automation Blocker (Optional)
-      description: Only run if this boolean is in desired state (see next input)
+      name: Automation Blocker
       default:
       selector:
         entity:
           multiple: true
+
     automation_blocker_boolean:
-      name: Automation Blocker (Optional)
-      description: Desired state of automation off blocker
+      name: Automation Blocker Desired State
       default: false
       selector:
         boolean: {}
+
     motion_off_blocker:
-      name: Motion Off Blocker (Optional)
-      description:
-        Motion off sequence (trigger goes from ON to OFF) is not run if this boolean is in desired state
-        (see next input)
+      name: Motion Off Blocker
       default:
       selector:
         entity:
           multiple: true
+
     motion_off_blocker_boolean:
-      name: Motion Off Chooser (Optional)
-      description: Desired state of motion off blocker
+      name: Motion Off Blocker Desired State
       default: false
       selector:
         boolean: {}
+
     scene_ambient:
-      name: Ambient Scene (Optional)
-      description: Scene for ambient state. Will be activated when no motion is detected.
+      name: Ambient Scene
       default: scene.none
       selector:
         entity:
-          domain:
-            - scene
-          multiple: false
+          domain: scene
+
     time_scene_ambient_start:
-      name: Ambient time frame start (Optional)
-      description: Time from which on ambient scene will be activated
-      default: 00:00:00
+      name: Ambient Scene Start Time
+      default: "00:00:00"
       selector:
         time: {}
+
     time_scene_ambient_end:
-      name: Ambient time frame end (Optional)
-      description: Time from which on ambient scene will be not activated
-      default: 00:00:00
+      name: Ambient Scene End Time
+      default: "23:59:59"
       selector:
         time: {}
+
 mode: restart
 max_exceeded: silent
+
 variables:
+  brightness_level: !input brightness_level
   scene_ambient: !input scene_ambient
-  automation_blocker_boolean: !input automation_blocker_boolean
   automation_blocker_entities: !input automation_blocker_entities
-  motion_off_blocker_boolean: !input motion_off_blocker_boolean
+  automation_blocker_boolean: !input automation_blocker_boolean
   motion_off_blocker: !input motion_off_blocker
+  motion_off_blocker_boolean: !input motion_off_blocker_boolean
   elevation: !input elevation
   elevation_adjustment: !input elevation_adjustment
-  motion_entity: !input motion_entity
-  luminance_sensor: !input luminance_sensor
-  luminance_required: !input luminance_required
-  brightness_level: !input brightness_level
+
 trigger:
   - platform: state
     entity_id: !input motion_entity
     from: "off"
     to: "on"
+
   - platform: state
     entity_id: !input motion_entity
     from: "on"
     to: "off"
     for: !input no_motion_wait
+
 condition:
   - condition: template
-    value_template: |
+    value_template: >
       {% if automation_blocker_entities | length == 0 %}
         true
       {% else %}
-        {% set unmatched_states = namespace(matched=True) %}
         {% for entity in automation_blocker_entities %}
-          {% set entity_state = states[entity].state %}
-          {% if (automation_blocker_boolean and entity_state != 'on') or (not automation_blocker_boolean and entity_state != 'off') %}
-            {% set unmatched_states.matched = False %}
-            {% break %}
+          {% if (automation_blocker_boolean and states(entity) != 'on')
+                or (not automation_blocker_boolean and states(entity) != 'off') %}
+            false
           {% endif %}
         {% endfor %}
-        {{ unmatched_states.matched }}
+        true
       {% endif %}
+
   - condition: template
     value_template: >
-      {% if 'Always' == elevation %}
+      {% if elevation == 'Always' %}
         true
       {% else %}
-        {% set sun_elevation = state_attr('sun.sun', 'elevation') %}
-        {% if sun_elevation is none %}
-            false
+        {% set sun_elev = state_attr('sun.sun','elevation') %}
+        {% if sun_elev is none %}
+          false
+        {% elif elevation == 'Above horizon' %}
+          {{ sun_elev > elevation_adjustment }}
         {% else %}
-          {% if (sun_elevation > elevation_adjustment and 'Above horizon' == elevation) or
-                (sun_elevation <= elevation_adjustment and 'Below horizon' == elevation) %}
-            true
-          {% else %}
-            false
-          {% endif %}
+          {{ sun_elev <= elevation_adjustment }}
         {% endif %}
       {% endif %}
+
 action:
-  - service: logbook.log
-    data:
-      name: "Automation Debug"
-      message: >
-        {% if automation_blocker_entities | length == 0 %}
-          true
-        {% else %}
-          {% set unmatched_states = namespace(matched=True) %}
-          {% for entity in automation_blocker_entities %}
-            {% set entity_state = states[entity].state %}
-            {% if (automation_blocker_boolean and entity_state != 'on') or (not automation_blocker_boolean and entity_state != 'off') %}
-              {% set unmatched_states.matched = False %}
-              {% break %}
-            {% endif %}
-          {% endfor %}
-          {{ unmatched_states.matched }}
-        {% endif %}
   - choose:
       - conditions:
           - condition: template
@@ -236,33 +198,34 @@ action:
           - condition: numeric_state
             entity_id: !input luminance_sensor
             below: !input luminance_required
-        sequence:
           - condition: time
             after: !input time_default_start
             before: !input time_default_end
+
+        sequence:
           - service: light.turn_on
             target: !input light_target
             data:
+              {% if brightness_level >= 0 %}
               brightness: >
-                {% set brightness_pct = brightness_level | default(30) %}
-                {% set brightness = (brightness_pct / 100) * 255 %}
-                {{ brightness | round(0) }}
+                {{ ((brightness_level / 100) * 255) | round(0) }}
+              {% endif %}
+
       - conditions:
           - condition: template
-            value_template: |
+            value_template: >
               {% if motion_off_blocker | length == 0 %}
                 true
               {% else %}
-                {% set unmatched_states = namespace(matched=True) %}
                 {% for entity in motion_off_blocker %}
-                  {% set entity_state = states[entity].state %}
-                  {% if (motion_off_blocker_boolean and entity_state != 'on') or (not motion_off_blocker_boolean and entity_state != 'off') %}
-                    {% set unmatched_states.matched = False %}
-                    {% break %}
+                  {% if (motion_off_blocker_boolean and states(entity) != 'on')
+                        or (not motion_off_blocker_boolean and states(entity) != 'off') %}
+                    false
                   {% endif %}
                 {% endfor %}
-                {{ unmatched_states.matched }}
+                true
               {% endif %}
+
         sequence:
           - choose:
               - conditions:
@@ -271,7 +234,9 @@ action:
                     after: !input time_scene_ambient_start
                     before: !input time_scene_ambient_end
                 sequence:
-                  - scene: !input scene_ambient
+                  - service: scene.turn_on
+                    target:
+                      entity_id: !input scene_ambient
             default:
               - service: light.turn_off
                 target: !input light_target
